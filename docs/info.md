@@ -9,7 +9,7 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-This project includes a 16-bit experimental CPU (GUS16) with a serial port and a few more peripherals (see GUS16_tt.pdf). Memory has to be provided externally. An included bootloader allows the execution of programs loaded through the serial port.
+This project includes a RISC-V CPU (LaRVa) with a serial port and a few more peripherals. Memory has to be provided externally. An included bootloader allows the execution of programs loaded through the serial port.
 
 ## How to test
 
@@ -21,9 +21,5 @@ For more complete tests an external board with SRAM memory and address latches h
 A memory board has to be attached to user PMOD connectors (still pending design)
 
 ## More docs
-https://www.ele.uva.es/~jesus/cpu_v2.pdf  (older designs, spanish)
-
-https://www.ele.uva.es/~jesus/GUS16v6.pdf (current CPU version)
-
-https://www.ele.uva.es/~jesus/a2.pdf      (CPU usage in a floppy disk emulator for apple-IIs in FPGAs)
+https://www.ele.uva.es/~jesus/larva.pdf
 
