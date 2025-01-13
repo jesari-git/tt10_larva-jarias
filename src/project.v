@@ -37,7 +37,7 @@ parameter FCLK=24000000;
 parameter BAUD=115200;
 
 /////////////////////////////// MEMORY ////////////////////////////////
-// Internal boot ROM (32 words), Combinational
+// Internal boot ROM: (32 words), Combinational
 
 reg [31:0]brom[0:31];
 wire [31:0]bromo=brom[ca[6:2]];
