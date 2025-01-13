@@ -37,7 +37,7 @@ parameter FCLK=24000000;
 parameter BAUD=115200;
 
 /////////////////////////////// MEMORY ////////////////////////////////
-// Internal boot ROM: (32 words), Combinational
+// Internal boot ROM (32 words), Combinational
 
 reg [31:0]brom[0:31];
 wire [31:0]bromo=brom[ca[6:2]];
@@ -168,14 +168,15 @@ always @(posedge cksys) tcount<=tcount+1;
 
 // Write chip-selects
 wire uartcs = iocs&(ca[7:5]==3'b000); // UART  at offset 0x00
+wire pwmcs  = iocs&(ca[7:5]==3'b001); // PWM  at offset 0x20
 wire irqcs  = iocs&(ca[7:5]==3'b111); // IRQEN at offset 0xE0
 
 // Peripheral output bus mux
 wire [31:0]iodo = 
-	((ca[7:5]==3'b000)&(~ca[2]) ? {24'h0,uart_do} 				: 0 ) |
-	((ca[7:5]==3'b000)&( ca[2]) ? {28'h0,urxoverr,urxframeer,utxrdy,urxvalid} : 0 ) |
-	((ca[7:5]==3'b011) 			? tcount 						: 0 ) |
-	((ca[7:5]==3'b111) 			? {30'h0,irqen} 				: 0 );
+	((ca[7:5]==3'b000)&(~ca[2]) ? {24'h0,uart_do} 	: 0 ) |
+	((ca[7:5]==3'b000)&( ca[2]) ? {27'h0,pwmirq,urxoverr,urxframeer,utxrdy,urxvalid} : 0 ) |
+	((ca[7:5]==3'b011) 			? tcount 			: 0 ) |
+	((ca[7:5]==3'b111) 			? {29'h0,irqen} 	: 0 );
 
 /////////////////////////////
 // UART
@@ -203,14 +204,40 @@ UART_core #(.DIVIDER(DIVIDER)) uart0 (
 	.txd(txd), .rxd(rxd)
 );
 assign stopcpu = (urd & (~urxvalid)) | (uwrtx & (~utxrdy));
+
+//////////////////////////////////////////
+//  PWM
+wire pwmwr = pwmcs & mwe[0];
+reg [7:0]pwmc;
+reg [7:0]pwmbuf;
+reg [7:0]pwm;
+reg pwmout;
+reg pwmirq;
+wire pwmtc = pwmc[7]&pwmc[5]&pwmc[4]&pwmc[2]; // MAX = 0xB4 (180)
+wire pwmzc = (pwmc==0);				// zero count
+
+always @(posedge cclk or posedge reset) begin
+	if (reset) begin
+	   	pwmc<=0;
+	   	pwmout<=0;
+		pwmirq<=0; 
+	end	else begin
+		pwmc<= pwmtc ? 0 : pwmc + 1;
+		if (pwmwr) pwm<=cdo[7:0];
+		if (pwmtc) pwmbuf<=pwm;
+		pwmout<= (pwmc==pwmbuf) ? 0 : (pwmzc ? 1 : pwmout);
+		pwmirq<= pwmzc ? 1 : (pwmwr  ? 0 : pwmirq);
+	end
+end
+
 //////////////////////////////////////////
 //    Interrupt control
 
 // IRQ enable reg
-reg [1:0]irqen=0;
+reg [2:0]irqen=0;
 always @(posedge cclk or posedge reset) begin
 	if (reset) irqen<=0; else
-	if (irqcs & (~ca[4]) &mwe[0]) irqen<=cdo[1:0];
+	if (irqcs & (~ca[4]) &mwe[0]) irqen<=cdo[2:0];
 end
 
 // IRQ vectors
@@ -218,18 +245,15 @@ reg [31:2]irqvect[0:3];
 always @(posedge cclk) if (irqcs & ca[4] & (mwe==4'b1111)) irqvect[ca[3:2]]<=cdo[31:2];
 
 // Enabled IRQs
-wire [1:0]irqpen={irqen[1]&utxrdy, irqen[0]&urxvalid};	// pending IRQs
+wire [2:0]irqpen={irqen[2]&pwmirq, irqen[1]&utxrdy, irqen[0]&urxvalid};	// pending IRQs
 
 // Priority encoder
 wire [1:0]vecn = trap      ? 2'b00 : (	// ECALL, EBREAK: highest priority
 				 irqpen[0] ? 2'b01 : (	// UART RX
 				 irqpen[1] ? 2'b10 : 	// UART TX
-				 			 2'bxx ));	
+				 			 2'b11 ));	// PWM
 assign ivector = irqvect[vecn];
 assign irq = (irqpen!=0)|trap;
-
-wire pwmout=0;
-
 
 endmodule
 
@@ -609,7 +633,7 @@ assign regsD  =
 	((opreg | opimm | opauipc | oplui) ? aluOut     : 32'b0) |
 	(opload                            ? LOAD_data  : 32'b0) |
 	((opjal | opjalr)                  ? {PC,2'b00} : 32'b0) |
-	(csrrw_mepc                        ? {PCreg[0],2'b00} : 32'b0);
+	(csrrw_mepc                        ? {PCreg0,2'b00} : 32'b0);
 
 //////////////////////////////////////////////////////
 ///////////////////      PC     //////////////////////
@@ -620,12 +644,8 @@ assign regsD  =
 //                     PC[1]: interrupts (machine)
 // Additional register PCci:  address of current instruction 
 
-reg  [31:2]PCreg[0:1];		// The Two PCs
-wire [31:2]PC=PCreg[mmode];	// Current mode PC
-
-wire [31:2]PC0=PCreg[0];	// For debug in gtkwave
-wire [31:2]PC1=PCreg[1];
-
+reg  [31:2]PCreg0; reg  [31:2]PCreg1;	// The Two PCs
+wire [31:2]PC=mmode ? PCreg1 : PCreg0;	// Current mode PC
 wire [31:2]PCimm=			// Immediate value to add to PC	
 	((opbranch & predicate) ? Bimm[31:2] : 30'h0) |
 	(opjal                  ? Jimm[31:2] : 30'h0);
@@ -636,11 +656,11 @@ wire [31:2]PCadd2= PCci+PCimm;								 // Jump address
 wire [31:2]PCnext= opjalr ? aluAdder[31:2] : (jump? PCadd2 : PCadd1);
 
 always @(posedge clk or posedge reset) begin
-	if (reset) begin PCreg[0]<=(RESET_PC>>2); end
+	if (reset) begin PCreg0<=(RESET_PC>>2); end
 	else begin
-		if (!mmode) PCreg[0]<= PCnext;
-		else if (csrrw_mepc) PCreg[0]<=regsQ1[31:2]; 
-		PCreg[1]<=(mmode&(~mret))? PCnext : ivector;
+		if (!mmode) PCreg0<= PCnext;
+		else if (csrrw_mepc) PCreg0<=regsQ1[31:2]; 
+		PCreg1<=(mmode&(~mret))? PCnext : ivector;
 	end
 end
 
