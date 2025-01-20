@@ -42,33 +42,33 @@ parameter BAUD=115200;
 reg [31:0]brom[0:31];
 wire [31:0]bromo=brom[ca[6:2]];
 initial begin
-brom[ 0]=32'he00001b7; //          	lui	gp,0xe0000
-brom[ 1]=32'h04c00213; //          	li	tp,76
-brom[ 2]=32'h0001c283; //          	lbu	t0,0(gp) # f0000000 <_ebss+0xefffe400>
-brom[ 3]=32'hfe521ee3; //          	bne	tp,t0,8 <start+0x8>
-brom[ 4]=32'h00518023; //          	sb	t0,0(gp)
-brom[ 5]=32'h02c000ef; //          	jal	ra,3c <getw>
-brom[ 6]=32'h00028393; //          	mv	t2,t0
-brom[ 7]=32'h024000ef; //          	jal	ra,3c <getw>
-brom[ 8]=32'h00538433; //          	add	s0,t2,t0
-brom[ 9]=32'h01c000ef; //          	jal	ra,3c <getw>
-brom[10]=32'h00028493; //          	mv	s1,t0
-brom[11]=32'h0001c283; //          	lbu	t0,0(gp)
-brom[12]=32'h00538023; //          	sb	t0,0(t2)
-brom[13]=32'h00138393; //          	addi	t2,t2,1
-brom[14]=32'hfe839ae3; //          	bne	t2,s0,28 <start+0x28>
-brom[15]=32'h00048067; //          	jr	s1
-//0000003c <getw>:
-brom[16]=32'h0001c283; //          	lbu	t0,0(gp)
-brom[17]=32'h0001c303; //          	lbu	t1,0(gp)
-brom[18]=32'h00831313; //          	slli	t1,t1,0x8
-brom[19]=32'h0062e2b3; //          	or	t0,t0,t1
-brom[20]=32'h0001c303; //          	lbu	t1,0(gp)
-brom[21]=32'h01031313; //          	slli	t1,t1,0x10
-brom[22]=32'h0062e2b3; //          	or	t0,t0,t1
-brom[23]=32'h0001c303; //          	lbu	t1,0(gp)
-brom[24]=32'h01831313; //          	slli	t1,t1,0x18
-brom[25]=32'h0062e2b3; //          	or	t0,t0,t1
+brom[ 0]=32'he00001b7; //          	lui		x3,0xE0000	// I/O area
+brom[ 1]=32'h04c00213; //          	li		x4,0x4c		// char 'L'
+brom[ 2]=32'h0001c283; //	1:		lbu 	x5,0(x3)	// UART RX (blocking)
+brom[ 3]=32'hfe521ee3; //          	bne		x4,x5,1b
+brom[ 4]=32'h00518023; //          	sb		x5,0(x3)	// echo 'L'
+brom[ 5]=32'h02c000ef; //          	call	getw
+brom[ 6]=32'h00028393; //          	mv		x7,x5		// loading address
+brom[ 7]=32'h024000ef; //          	call	getw		// number of bytes
+brom[ 8]=32'h00538433; //          	add		x8,x7,x5	// end address
+brom[ 9]=32'h01c000ef; //          	call	getw
+brom[10]=32'h00028493; //          	mv		x9,x5		// Entry address
+brom[11]=32'h0001c283; //	2:		lbu 	x5,0(x3)	// data block
+brom[12]=32'h00538023; //          	sb		x5,0(x7)
+brom[13]=32'h00138393; //          	addi	x7,x7,1
+brom[14]=32'hfe839ae3; //          	bne		x7,x8,2b
+brom[15]=32'h00048067; //          	jr		x9			// Jump to code
+
+brom[16]=32'h0001c283; //   getw:  	lbu 	x5,0(x3)	// get 32-bit word in X5
+brom[17]=32'h0001c303; //          	lbu 	x6,0(x3)
+brom[18]=32'h00831313; //          	slli 	x6,x6,8
+brom[19]=32'h0062e2b3; //          	or		x5,x5,x6
+brom[20]=32'h0001c303; //          	lbu 	x6,0(x3)
+brom[21]=32'h01031313; //          	lli 	x6,x6,16
+brom[22]=32'h0062e2b3; //          	or		x5,x5,x6
+brom[23]=32'h0001c303; //          	lbu 	x6,0(x3)
+brom[24]=32'h01831313; //          	slli 	x6,x6,24
+brom[25]=32'h0062e2b3; //          	or		x5,x5,x6
 brom[26]=32'h00008067; //          	ret
 end
 
