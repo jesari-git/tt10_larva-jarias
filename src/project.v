@@ -796,12 +796,12 @@ parameter BYPASS          =4'b1111;
 reg [IRLEN-1:0]irsh;	// shift reg
 reg [IRLEN-1:0]ir;		// output latch
 
-assign streset=(tapst==RESET);
+assign streset=(tapst==RESET)|(tapst==IDLE);
 always @(negedge tck)
 	if (tapst==IRSHIFT) irsh<={stdi,irsh[IRLEN-1:1]};
 always @(negedge tck or posedge reset)
 	if (reset) ir<=IDCODE;
-	else if (streset) ir<=IDCODE;
+	else if (tapst==RESET) ir<=IDCODE;
 		else if (tapst==IRUPDATE) ir<=irsh; 
 
 wire sel_id=(ir==IDCODE);
@@ -812,7 +812,7 @@ wire sel_main= (~sel_id)&(~sel_bypass);
 assign extest=(ir==EXTEST);
 
 // ID register
-parameter IDVAL=32'h0DEFECAD;
+parameter IDVAL=32'h0CACA06B;
 //parameter IDVAL=32'h0x05B4603F; // Atmel ARM926EJ-S
 reg [31:0]idr;
 always @(negedge tck)
@@ -832,7 +832,8 @@ always @(negedge tck)
 	if (tapst==DRUPDATE) bsq<=bssh; 
 
 // TDO select
-assign tdo = sel_id ? idr[0] : (sel_bypass ? byp : bssh[0] );
+assign tdo = (tapst==IRSHIFT) ? irsh[0] : 
+				(sel_id ? idr[0] : (sel_bypass ? byp : bssh[0] ));
 
 endmodule
 
