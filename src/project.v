@@ -812,8 +812,8 @@ wire sel_main= (~sel_id)&(~sel_bypass);
 assign extest=(ir==EXTEST);
 
 // ID register
-//parameter IDVAL=32'h0DEFECAD;
-parameter IDVAL=32'h0x05B4_603F; // Atmel ARM926EJ-S
+parameter IDVAL=32'h0DEFECAD;
+//parameter IDVAL=32'h0x05B4603F; // Atmel ARM926EJ-S
 reg [31:0]idr;
 always @(negedge tck)
 	idr <= (tapst==DRCAPTURE) ? IDVAL : ((tapst==DRSHIFT) ? {stdi,idr[31:1]} : idr);
