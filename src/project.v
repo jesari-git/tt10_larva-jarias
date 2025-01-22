@@ -28,11 +28,33 @@ module tt_um_larva (
   // List all unused inputs to prevent warnings
   wire _unused = &{ena, clk, rst_n, 1'b0};
 */  
-wire reset = ~rst_n;
-assign uo_out={xweb,xoeb,xhh,txd,pwmout,xlah,xlal,xbh};
-assign rxd=ui_in[3];
+
+wire pwmpin = streset ? pwmout : tdo;
+assign uo_out=extest ? {bsq[29:26],        pwmpin ,bsq[25:23]} : 
+			  		   {xweb,xoeb,xhh,txd, pwmpin ,xlah,xlal,xbh};
+assign uio_out=extest ? bsq[22:15] : cuio_out;
+
 wire _unused = &{ ena, 1'b0};
 
+////////////// JTAG ///////////////
+
+localparam BSLEN=30;
+wire tdo,extest,streset;
+wire [BSLEN-1:0]bsd={uo_out[7:4],uo_out[2:0],uio_out,uio_in,ui_in[7:3],clk,rst_n};
+wire [BSLEN-1:0]bsq;
+JTAG_TAP #(.BSLEN(BSLEN)) jtag0( .reset(~rst_n), 
+				.tck(ui_in[0]),.tms(ui_in[1]), .tdi(ui_in[2]),
+				.tdo(tdo), .extest(extest), .streset(streset),
+				.bsd(bsd), .bsq(bsq) );
+
+wire reset= (~rst_n) | (extest&(~bsq[0]));
+wire jclk= extest ? bsq[1] : clk;
+assign rxd=extest ? bsq[2] : ui_in[3];
+wire [3:0]gpin=extest ? bsq[6:3] : ui_in[7:4];
+wire [7:0]juio_in= extest ? bsq[14:7] : uio_in;
+
+
+///////////////// internal system /////////////////////
 parameter FCLK=24000000;
 parameter BAUD=115200;
 
@@ -80,7 +102,7 @@ end
 
 ///// clock counter & divider (1/6) /////
 reg [2:0]ckd=0;
-always @(posedge clk or posedge reset) 
+always @(posedge jclk or posedge reset) 
 	if (reset) ckd<=0; 
 	else ckd<=(~ckd[2])&ckd[0] ? 3'b100 : ckd+1;
 
@@ -92,7 +114,7 @@ wire xlah = ((~ckd[2])&( ckd[0])) & xramcs;		// latch address high (for '373)
 wire xbh  = ckd[0] & xramcs;					// high byte (A[0] in SRAM)
 wire xhh  = ckd[1] & xramcs;					// high halfword (A[1] in SRAM)
 wire xoeb = ~((~we) & ckd[2] & xramcs);			// /OE for SRAM
-wire xweb = clk | (~ckd[2]) | (~mwe[ckd[1:0]]) | (~xramcs);	// /WE for SRAM
+wire xweb = jclk | (~ckd[2]) | (~mwe[ckd[1:0]]) | (~xramcs);	// /WE for SRAM
 
 //// 8-bit BUS mux ////
 wire [7:0]d8o[0:7];
@@ -104,21 +126,21 @@ assign d8o[4]=cdo[ 7: 0];
 assign d8o[5]=cdo[15: 8];
 assign d8o[6]=cdo[23:16];
 assign d8o[7]=cdo[31:24];
-assign uio_out=d8o[ckd];
-wire xnoe=(ckd[2]&(~we))|(~xramcs);
-assign uio_oe=xnoe ? 8'h00 : 8'hff;
+wire [7:0]cuio_out=d8o[ckd];
+// uo_out[6] = xoeb
+assign uio_oe=uo_out[6] ? 8'hff : 8'h00;
 
 // input registers for low bytes
 reg [7:0]xdl0;
 reg [7:0]xdl1;
 reg [7:0]xdl2;
-always @(posedge clk) begin
-	if (ckd==3'b100) xdl0<=uio_in;
-	if (ckd==3'b101) xdl1<=uio_in;
-	if (ckd==3'b110) xdl2<=uio_in;
+always @(posedge jclk) begin
+	if (ckd==3'b100) xdl0<=juio_in;
+	if (ckd==3'b101) xdl1<=juio_in;
+	if (ckd==3'b110) xdl2<=juio_in;
 end
 
-wire [31:0]xdi = {uio_in,xdl2,xdl1,xdl0}; // data input (word) from external RAM
+wire [31:0]xdi = {juio_in,xdl2,xdl1,xdl0}; // data input (word) from external RAM
 
 ///////////////////////////////////////////////////////
 ////////////////////////// CPU ////////////////////////
@@ -175,6 +197,7 @@ wire irqcs  = iocs&(ca[7:5]==3'b111); // IRQEN at offset 0xE0
 wire [31:0]iodo = 
 	((ca[7:5]==3'b000)&(~ca[2]) ? {24'h0,uart_do} 	: 0 ) |
 	((ca[7:5]==3'b000)&( ca[2]) ? {27'h0,pwmirq,urxoverr,urxframeer,utxrdy,urxvalid} : 0 ) |
+	((ca[7:5]==3'b001) 			? {28'h0,gpin}		: 0 ) |
 	((ca[7:5]==3'b011) 			? tcount 			: 0 ) |
 	((ca[7:5]==3'b111) 			? {29'h0,irqen} 	: 0 );
 
@@ -694,5 +717,126 @@ wire irqstart = (~mmode) & (q0|trap) ; // Single cycle pulse
 
 
 endmodule
+
+///////////////////////////////////////////////
+// JTAG port:
+// 	
+//////////////////////////////////////////////
+
+module JTAG_TAP (
+	input tck,
+	input reset,		
+	input tms,
+	input tdi,
+	output tdo,
+	output [3:0]tapst, // debug
+	input  [BSLEN-1:0]bsd,
+	output [BSLEN-1:0]bsq,
+	output extest,
+	output streset	
+);
+parameter BSLEN=26;
+
+// Sampled TDI & TMS (rising clock)
+reg stdi;
+reg stms;
+always @(posedge tck) {stdi,stms}<={tdi,tms};
+
+// TAP state machine
+localparam RESET 	=0;
+localparam IDLE  	=8;
+localparam DRSCAN	=1;
+localparam DRCAPTURE=2;
+localparam DRSHIFT	=3;
+localparam DREXIT1	=4;
+localparam DRPAUSE	=5;
+localparam DREXIT2	=6;
+localparam DRUPDATE	=7;
+localparam IRSCAN	=9;
+localparam IRCAPTURE=10;
+localparam IRSHIFT	=11;
+localparam IREXIT1	=12;
+localparam IRPAUSE	=13;
+localparam IREXIT2	=14;
+localparam IRUPDATE	=15;
+
+reg [3:0]tapst;
+
+always @(negedge tck or posedge reset)
+	if (reset) tapst<=RESET;
+	else case(tapst)
+	RESET:		tapst<= stms ? RESET	: IDLE;
+	IDLE:		tapst<= stms ? DRSCAN	: IDLE;
+	DRSCAN:		tapst<= stms ? IRSCAN	: DRCAPTURE; 
+	DRCAPTURE:	tapst<= stms ? DREXIT1	: DRSHIFT; 
+	DRSHIFT:	tapst<= stms ? DREXIT1	: DRSHIFT;
+	DREXIT1:	tapst<= stms ? DRUPDATE	: DRPAUSE;
+	DRPAUSE:	tapst<= stms ? DREXIT2	: DRPAUSE; 
+	DREXIT2:	tapst<= stms ? DRUPDATE	: DRSHIFT; 
+	DRUPDATE:	tapst<= stms ? DRSCAN	: IDLE; 
+	IRSCAN:		tapst<= stms ? RESET	: IRCAPTURE; 
+	IRCAPTURE:	tapst<= stms ? IREXIT1	: IRSHIFT; 
+	IRSHIFT:	tapst<= stms ? IREXIT1	: IRSHIFT;
+	IREXIT1:	tapst<= stms ? IRUPDATE	: IRPAUSE;
+	IRPAUSE:	tapst<= stms ? IREXIT2	: IRPAUSE; 
+	IREXIT2:	tapst<= stms ? IRUPDATE	: IRSHIFT; 
+	IRUPDATE:	tapst<= stms ? DRSCAN	: IDLE; 
+	endcase
+
+	
+// IR register
+parameter IRLEN=4;
+parameter EXTEST          =4'b0000;
+parameter SAMPLE_PRELOAD  =4'b0001;
+parameter IDCODE          =4'b0010;
+//parameter DEBUG           =4'b1000;
+//parameter MBIST           =4'b1001;
+parameter BYPASS          =4'b1111;
+
+reg [IRLEN-1:0]irsh;	// shift reg
+reg [IRLEN-1:0]ir;		// output latch
+
+assign streset=(tapst==RESET);
+always @(negedge tck)
+	if (tapst==IRSHIFT) irsh<={stdi,irsh[IRLEN-1:1]};
+always @(negedge tck or posedge reset)
+	if (reset) ir<=IDCODE;
+	else if (streset) ir<=IDCODE;
+		else if (tapst==IRUPDATE) ir<=irsh; 
+
+wire sel_id=(ir==IDCODE);
+wire sel_bypass=(ir==BYPASS);
+wire sel_sample=(ir==SAMPLE_PRELOAD);
+wire sel_main= (~sel_id)&(~sel_bypass);
+
+assign extest=(ir==EXTEST);
+
+// ID register
+//parameter IDVAL=32'h0DEFECAD;
+parameter IDVAL=32'h0x05B4_603F; // Atmel ARM926EJ-S
+reg [31:0]idr;
+always @(negedge tck)
+	idr <= (tapst==DRCAPTURE) ? IDVAL : ((tapst==DRSHIFT) ? {stdi,idr[31:1]} : idr);
+
+// Bypass register
+reg byp;
+always @(negedge tck) if (sel_bypass) byp<=stdi;
+
+// Main scan chain
+reg [BSLEN-1:0]bssh;
+reg [BSLEN-1:0]bsq;
+always @(negedge tck)
+	bssh <= (tapst==DRCAPTURE)&(sel_sample | extest) ? bsd : 
+			((tapst==DRSHIFT) ? {stdi,bssh[BSLEN-1:1]} : bssh);
+always @(negedge tck)
+	if (tapst==DRUPDATE) bsq<=bssh; 
+
+// TDO select
+assign tdo = sel_id ? idr[0] : (sel_bypass ? byp : bssh[0] );
+
+endmodule
+
+
+
 
 
