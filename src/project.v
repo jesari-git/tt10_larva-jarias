@@ -729,9 +729,9 @@ module JTAG_TAP (
 	input tms,
 	input tdi,
 	output tdo,
-	output [3:0]tapst, // debug
+	//output [3:0]tapst, // debug
 	input  [BSLEN-1:0]bsd,
-	output [BSLEN-1:0]bsq,
+	output reg [BSLEN-1:0]bsq,
 	output extest,
 	output streset	
 );
@@ -824,7 +824,7 @@ always @(negedge tck) if (sel_bypass) byp<=stdi;
 
 // Main scan chain
 reg [BSLEN-1:0]bssh;
-reg [BSLEN-1:0]bsq;
+//reg [BSLEN-1:0]bsq;
 always @(negedge tck)
 	bssh <= (tapst==DRCAPTURE)&(sel_sample | extest) ? bsd : 
 			((tapst==DRSHIFT) ? {stdi,bssh[BSLEN-1:1]} : bssh);
