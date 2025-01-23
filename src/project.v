@@ -17,7 +17,10 @@ module tt_um_larva (
     input  wire       ena,      // always 1 when the design is powered, so you can ignore it
     input  wire       clk,      // clock
     input  wire       rst_n     // reset_n - low to reset
+    ,output [2:0]debug
 );
+
+assign debug={rxd,jclk,reset};
 
 /*
   // All output pins must be assigned. If not used, assign to 0.
@@ -30,9 +33,9 @@ module tt_um_larva (
 */  
 
 wire pwmpin = streset ? pwmout : tdo;
-assign uo_out=extest ? {bsq[29:26],        pwmpin ,bsq[25:23]} : 
+assign uo_out=extestd ? {bsq[29:26],       pwmpin ,bsq[25:23]} : 
 			  		   {xweb,xoeb,xhh,txd, pwmpin ,xlah,xlal,xbh};
-assign uio_out=extest ? bsq[22:15] : cuio_out;
+assign uio_out=extestd ? bsq[22:15] : cuio_out;
 
 wire _unused = &{ ena, 1'b0};
 
@@ -48,11 +51,22 @@ JTAG_TAP #(.BSLEN(BSLEN)) jtag0( .reset(~rst_n),
 				.bsd(bsd), .bsq(bsq) );
 
 wire reset= (~rst_n) | (extest&(~bsq[0]));
-wire jclk= extest ? bsq[1] : clk;
-assign rxd=extest ? bsq[2] : ui_in[3];
-wire [3:0]gpin=extest ? bsq[6:3] : ui_in[7:4];
-wire [7:0]juio_in= extest ? bsq[14:7] : uio_in;
+assign rxd=extestd ? bsq[2] : ui_in[3];
+wire [3:0]gpin=extestd ? bsq[6:3] : ui_in[7:4];
+wire [7:0]juio_in= extestd ? bsq[14:7] : uio_in;
 
+// clock synchronizer
+/*
+reg [1:0]extestd;	// extest delayed
+always @(posedge clk) extestd<={extest,extestd[1]};
+wire [3:0]jclkv={bsq[1],1'b1,1'b1,clk}; // clock mux
+wire jclk=jclkv[extestd]; 
+*/
+reg extestd;	// extest delayed
+always @(posedge clk) extestd<=extest;
+reg bsq1r;		// BS clock sampled
+always @(posedge clk) bsq1r<=bsq[1];
+wire jclk= extestd ? bsq1r : clk;
 
 ///////////////// internal system /////////////////////
 parameter FCLK=24000000;
@@ -171,9 +185,9 @@ laRVa #(.NREG(16)) cpu (
 
 ///////////////////////////////////////////////////////
 ///// Memory mapping
-wire bromcs= (ca[31:29]==4'b000);
-wire xramcs= (ca[31:29]==4'b001);
-wire iocs=   (ca[31:29]==4'b111);
+wire bromcs= (ca[31:29]==3'b000);
+wire xramcs= (ca[31:29]==3'b001);
+wire iocs=   (ca[31:29]==3'b111);
 
 // Input bus mux
 wire [31:0]cdi = 
@@ -786,11 +800,9 @@ always @(negedge tck or posedge reset)
 	
 // IR register
 parameter IRLEN=4;
-parameter EXTEST          =4'b0000;
+parameter IDCODE          =4'b0000;
 parameter SAMPLE_PRELOAD  =4'b0001;
-parameter IDCODE          =4'b0010;
-//parameter DEBUG           =4'b1000;
-//parameter MBIST           =4'b1001;
+parameter EXTEST          =4'b0010;
 parameter BYPASS          =4'b1111;
 
 reg [IRLEN-1:0]irsh;	// shift reg
@@ -812,7 +824,7 @@ wire sel_main= (~sel_id)&(~sel_bypass);
 assign extest=(ir==EXTEST);
 
 // ID register
-parameter IDVAL=32'h0CACA06B;
+parameter IDVAL=32'h00047FAB;
 //parameter IDVAL=32'h0x05B4603F; // Atmel ARM926EJ-S
 reg [31:0]idr;
 always @(negedge tck)
