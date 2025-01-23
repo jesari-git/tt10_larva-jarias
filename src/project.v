@@ -17,11 +17,13 @@ module tt_um_larva (
     input  wire       ena,      // always 1 when the design is powered, so you can ignore it
     input  wire       clk,      // clock
     input  wire       rst_n     // reset_n - low to reset
-    ,output [2:0]debug
+    `ifdef FPGA
+    	,output [2:0]debug
+    `endif
 );
-
-assign debug={rxd,jclk,reset};
-
+`ifdef FPGA
+	assign debug={rxd,jclk,reset};
+`endif
 /*
   // All output pins must be assigned. If not used, assign to 0.
   assign uo_out  = ui_in + uio_in;  // Example: ou_out is the sum of ui_in and uio_in
