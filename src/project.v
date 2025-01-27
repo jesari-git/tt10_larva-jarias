@@ -54,7 +54,7 @@ JTAG_TAP #(.BSLEN(BSLEN)) jtag0( .reset(~rst_n),
 				.tdo(tdo), .extest(extest), .intest(intest), .streset(streset),
 				.bsd(bsd), .bsq(bsq) );
 
-wire reset= (~rst_n) | (extest&(~bsq[0]));
+wire reset= (~rst_n) | ((extest|intest)&(~bsq[0]));
 assign rxd=exintest ? bsq[2] : ui_in[3];
 wire [3:0]gpin=exintest ? bsq[6:3] : ui_in[7:4];
 wire [7:0]juio_in= exintest ? bsq[14:7] : uio_in;
