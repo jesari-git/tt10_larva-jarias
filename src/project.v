@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Your Name
+ * Copyright (c) 2025 Jesús Arias
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -22,7 +22,7 @@ module tt_um_larva (
     `endif
 );
 `ifdef FPGA
-	assign debug={rxd,jclk,reset};
+	assign debug=uo_out[7:5];
 `endif
 /*
   // All output pins must be assigned. If not used, assign to 0.
@@ -35,40 +35,42 @@ module tt_um_larva (
 */  
 
 wire pwmpin = streset ? pwmout : tdo;
-assign uo_out=extestd ? {bsq[29:26],       pwmpin ,bsq[25:23]} : 
+assign uo_out=exintest ? {bsq[29:26],       pwmpin ,bsq[25:23]} : 
 			  		   {xweb,xoeb,xhh,txd, pwmpin ,xlah,xlal,xbh};
-assign uio_out=extestd ? bsq[22:15] : cuio_out;
+assign uio_out=exintest ? bsq[22:15] : cuio_out;
 
 wire _unused = &{ ena, 1'b0};
 
 ////////////// JTAG ///////////////
 
 localparam BSLEN=30;
-wire tdo,extest,streset;
-wire [BSLEN-1:0]bsd={uo_out[7:4],uo_out[2:0],uio_out,uio_in,ui_in[7:3],clk,rst_n};
+wire tdo,extest,intest,streset;
+wire [BSLEN-1:0]bsd=intest ?
+			{xweb,xoeb,xhh,txd,xlah,xlal,xbh,cuio_out,juio_in,gpin,rxd,jclk,reset} :
+			{uo_out[7:4],uo_out[2:0],uio_out,uio_in,ui_in[7:3],clk,rst_n};
 wire [BSLEN-1:0]bsq;
 JTAG_TAP #(.BSLEN(BSLEN)) jtag0( .reset(~rst_n), 
 				.tck(ui_in[0]),.tms(ui_in[1]), .tdi(ui_in[2]),
-				.tdo(tdo), .extest(extest), .streset(streset),
+				.tdo(tdo), .extest(extest), .intest(intest), .streset(streset),
 				.bsd(bsd), .bsq(bsq) );
 
 wire reset= (~rst_n) | (extest&(~bsq[0]));
-assign rxd=extestd ? bsq[2] : ui_in[3];
-wire [3:0]gpin=extestd ? bsq[6:3] : ui_in[7:4];
-wire [7:0]juio_in= extestd ? bsq[14:7] : uio_in;
+assign rxd=exintest ? bsq[2] : ui_in[3];
+wire [3:0]gpin=exintest ? bsq[6:3] : ui_in[7:4];
+wire [7:0]juio_in= exintest ? bsq[14:7] : uio_in;
 
 // clock synchronizer
 /*
-reg [1:0]extestd;	// extest delayed
-always @(posedge clk) extestd<={extest,extestd[1]};
+reg [1:0]exintest;	// extest delayed
+always @(posedge clk) exintest<={extest,exintest[1]};
 wire [3:0]jclkv={bsq[1],1'b1,1'b1,clk}; // clock mux
-wire jclk=jclkv[extestd]; 
+wire jclk=jclkv[exintest]; 
 */
-reg extestd;	// extest delayed
-always @(posedge clk) extestd<=extest;
+reg exintest;	// extest delayed
+always @(posedge clk) exintest<=extest|intest;
 reg bsq1r;		// BS clock sampled
 always @(posedge clk) bsq1r<=bsq[1];
-wire jclk= extestd ? bsq1r : clk;
+wire jclk= exintest ? bsq1r : clk;
 
 ///////////////// internal system /////////////////////
 parameter FCLK=24000000;
@@ -749,6 +751,7 @@ module JTAG_TAP (
 	input  [BSLEN-1:0]bsd,
 	output reg [BSLEN-1:0]bsq,
 	output extest,
+	output intest,
 	output streset	
 );
 parameter BSLEN=26;
@@ -805,6 +808,7 @@ parameter IRLEN=4;
 parameter IDCODE          =4'b0000;
 parameter SAMPLE_PRELOAD  =4'b0001;
 parameter EXTEST          =4'b0010;
+parameter INTEST          =4'b0011;
 parameter BYPASS          =4'b1111;
 
 reg [IRLEN-1:0]irsh;	// shift reg
@@ -824,6 +828,7 @@ wire sel_sample=(ir==SAMPLE_PRELOAD);
 wire sel_main= (~sel_id)&(~sel_bypass);
 
 assign extest=(ir==EXTEST);
+assign intest=(ir==INTEST);
 
 // ID register
 parameter IDVAL=32'h00047FAB;
