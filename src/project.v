@@ -46,7 +46,7 @@ wire _unused = &{ ena, 1'b0};
 localparam BSLEN=30;
 wire tdo,extest,intest,streset;
 wire [BSLEN-1:0]bsd=intest ?
-			{xweb,xoeb,xhh,txd,xlah,xlal,xbh,cuio_out,juio_in,gpin,rxd,jclk,reset} :
+			{xweb,xoeb,xhh,txd,xlah,xlal,xbh,cuio_out,juio_in,gpin,rxd,jclk,~reset} :
 			{uo_out[7:4],uo_out[2:0],uio_out,uio_in,ui_in[7:3],clk,rst_n};
 wire [BSLEN-1:0]bsq;
 JTAG_TAP #(.BSLEN(BSLEN)) jtag0( .reset(~rst_n), 
@@ -67,7 +67,8 @@ wire [3:0]jclkv={bsq[1],1'b1,1'b1,clk}; // clock mux
 wire jclk=jclkv[exintest]; 
 */
 reg exintest;	// extest delayed
-always @(posedge clk) exintest<=extest|intest;
+always @(posedge clk or negedge rst_n) 
+	if (~rst_n) exintest<=0; else exintest<=extest|intest;
 reg bsq1r;		// BS clock sampled
 always @(posedge clk) bsq1r<=bsq[1];
 wire jclk= exintest ? bsq1r : clk;
@@ -804,12 +805,12 @@ always @(negedge tck or posedge reset)
 
 	
 // IR register
-parameter IRLEN=4;
-parameter IDCODE          =4'b0000;
-parameter SAMPLE_PRELOAD  =4'b0001;
-parameter EXTEST          =4'b0010;
-parameter INTEST          =4'b0011;
-parameter BYPASS          =4'b1111;
+parameter IRLEN=3;
+parameter IDCODE          =3'b000;
+parameter SAMPLE_PRELOAD  =3'b001;
+parameter EXTEST          =3'b010;
+parameter INTEST          =3'b011;
+parameter BYPASS          =3'b111;
 
 reg [IRLEN-1:0]irsh;	// shift reg
 reg [IRLEN-1:0]ir;		// output latch
@@ -845,8 +846,8 @@ always @(negedge tck) if (sel_bypass) byp<=stdi;
 reg [BSLEN-1:0]bssh;
 //reg [BSLEN-1:0]bsq;
 always @(negedge tck)
-	bssh <= (tapst==DRCAPTURE)&(sel_sample | extest) ? bsd : 
-			((tapst==DRSHIFT) ? {stdi,bssh[BSLEN-1:1]} : bssh);
+	bssh <= (tapst==DRCAPTURE) ? bsd : 
+			((tapst==DRSHIFT)  ? {stdi,bssh[BSLEN-1:1]} : bssh);
 always @(negedge tck)
 	if (tapst==DRUPDATE) bsq<=bssh; 
 
