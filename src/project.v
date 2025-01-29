@@ -88,29 +88,30 @@ brom[ 1]=32'h04c00213; //          	li		x4,0x4c		// char 'L'
 brom[ 2]=32'h0001c283; //	1:		lbu 	x5,0(x3)	// UART RX (blocking)
 brom[ 3]=32'hfe521ee3; //          	bne		x4,x5,1b
 brom[ 4]=32'h00518023; //          	sb		x5,0(x3)	// echo 'L'
-brom[ 5]=32'h02c000ef; //          	call	getw
+brom[ 5]=32'h030000ef; //          	call	getw
 brom[ 6]=32'h00028393; //          	mv		x7,x5		// loading address
-brom[ 7]=32'h024000ef; //          	call	getw		// number of bytes
+brom[ 7]=32'h028000ef; //          	call	getw		// number of bytes
 brom[ 8]=32'h00538433; //          	add		x8,x7,x5	// end address
-brom[ 9]=32'h01c000ef; //          	call	getw
+brom[ 9]=32'h020000ef; //          	call	getw
 brom[10]=32'h00028493; //          	mv		x9,x5		// Entry address
-brom[11]=32'h0001c283; //	2:		lbu 	x5,0(x3)	// data block
-brom[12]=32'h00538023; //          	sb		x5,0(x7)
-brom[13]=32'h00138393; //          	addi	x7,x7,1
-brom[14]=32'hfe839ae3; //          	bne		x7,x8,2b
-brom[15]=32'h00048067; //          	jr		x9			// Jump to code
+brom[11]=32'h0100006f; //          	j		3f
+brom[12]=32'h0001c283; //	2:		lbu 	x5,0(x3)	// data block
+brom[13]=32'h00538023; //          	sb		x5,0(x7)
+brom[14]=32'h00138393; //          	addi	x7,x7,1
+brom[15]=32'hfe839ae3; //   3:     	bne		x7,x8,2b
+brom[16]=32'h00048067; //          	jr		x9			// Jump to code
 
-brom[16]=32'h0001c283; //   getw:  	lbu 	x5,0(x3)	// get 32-bit word in X5
-brom[17]=32'h0001c303; //          	lbu 	x6,0(x3)
-brom[18]=32'h00831313; //          	slli 	x6,x6,8
-brom[19]=32'h0062e2b3; //          	or		x5,x5,x6
-brom[20]=32'h0001c303; //          	lbu 	x6,0(x3)
-brom[21]=32'h01031313; //          	lli 	x6,x6,16
-brom[22]=32'h0062e2b3; //          	or		x5,x5,x6
-brom[23]=32'h0001c303; //          	lbu 	x6,0(x3)
-brom[24]=32'h01831313; //          	slli 	x6,x6,24
-brom[25]=32'h0062e2b3; //          	or		x5,x5,x6
-brom[26]=32'h00008067; //          	ret
+brom[17]=32'h0001c283; //   getw:  	lbu 	x5,0(x3)	// get 32-bit word in X5
+brom[18]=32'h0001c303; //          	lbu 	x6,0(x3)
+brom[19]=32'h00831313; //          	slli 	x6,x6,8
+brom[20]=32'h0062e2b3; //          	or		x5,x5,x6
+brom[21]=32'h0001c303; //          	lbu 	x6,0(x3)
+brom[22]=32'h01031313; //          	lli 	x6,x6,16
+brom[23]=32'h0062e2b3; //          	or		x5,x5,x6
+brom[24]=32'h0001c303; //          	lbu 	x6,0(x3)
+brom[25]=32'h01831313; //          	slli 	x6,x6,24
+brom[26]=32'h0062e2b3; //          	or		x5,x5,x6
+brom[27]=32'h00008067; //          	ret
 end
 
 
@@ -738,7 +739,7 @@ wire irqstart = (~mmode) & (q0|trap) ; // Single cycle pulse
 endmodule
 
 ///////////////////////////////////////////////
-// JTAG port:
+// JTAG port: J. Arias (2025)
 // 	
 //////////////////////////////////////////////
 
