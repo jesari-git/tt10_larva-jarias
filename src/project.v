@@ -22,7 +22,7 @@ module tt_um_larva (
     `endif
 );
 `ifdef FPGA
-	assign debug=uo_out[7:5];
+	assign debug={pwmout,~pwmout,1'b0};
 `endif
 /*
   // All output pins must be assigned. If not used, assign to 0.
@@ -221,7 +221,7 @@ wire [31:0]iodo =
 	((ca[7:5]==3'b000)&( ca[2]) ? {25'h0,pwmirq,udirty,uctrlc,urxoverr,urxframeer,utxrdy,urxvalid} : 0 ) |
 	((ca[7:5]==3'b001) 			? {28'h0,gpin}		: 0 ) |
 	((ca[7:5]==3'b011) 			? tcount 			: 0 ) |
-	((ca[7:5]==3'b111) 			? {28'h0,irqen} 	: 0 );
+	((ca[7:5]==3'b111) 			? {27'h0,irqen} 	: 0 );
 
 /////////////////////////////
 // UART
@@ -286,10 +286,10 @@ end
 //    Interrupt control
 
 // IRQ enable reg
-reg [3:0]irqen=0;
+reg [4:0]irqen=0;
 always @(posedge cclk or posedge reset) begin
 	if (reset) irqen<=0; else
-	if (irqcs & (~ca[4]) &mwe[0]) irqen<=cdo[3:0];
+	if (irqcs & (~ca[4]) &mwe[0]) irqen<=cdo[4:0];
 end
 
 // IRQ vectors
@@ -297,12 +297,13 @@ reg [31:2]irqvect[0:3];
 always @(posedge cclk) if (irqcs & ca[4] & (mwe==4'b1111)) irqvect[ca[3:2]]<=cdo[31:2];
 
 // Pending IRQs
-wire [2:0]irqpen={	irqen[3] & usermode, irqen[2] & pwmirq,
-				  (irqen[1] & utxrdy) | (irqen[0] & urxvalid) };	// pending IRQs
+wire [2:0]irqpen={ (irqen[3] & usermode) | (irqen[4] & uctrlc),
+				   irqen[2] & pwmirq,
+				   (irqen[1] & utxrdy) | (irqen[0] & urxvalid) };	// pending IRQs
 
 // Priority encoder
 wire [1:0]vecn = trap      ? 2'b00 : (	// ECALL, EBREAK: highest priority
-	 			 irqpen[2] ? 2'b01 : (	// Single Step
+	 			 irqpen[2] ? 2'b01 : (	// Single Step / Crtl-c
 				 irqpen[0] ? 2'b10 : 	// UART RX/TX
 				 			 2'b11 ));	// PWM
 assign ivector = irqvect[vecn];
