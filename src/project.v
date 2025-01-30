@@ -176,6 +176,7 @@ wire we=|mwe;		// Write enable (any lane)
 wire irq;
 wire [31:2]ivector;	// Where to jump on IRQ
 wire trap;			// Trap irq (to IRQ vector generator)
+wire usermode;
 
 laRVa #(.NREG(16)) cpu (
 		.clk     (cclk ),
@@ -184,6 +185,7 @@ laRVa #(.NREG(16)) cpu (
 		.wdata   (cdo  ),
 		.wstrb   (mwe  ),
 		.rdata   (cdi  ),
+		.usermode(usermode),
 		.irq     (irq  ),
 		.ivector (ivector),
 		.trap    (trap)
@@ -216,10 +218,10 @@ wire irqcs  = iocs&(ca[7:5]==3'b111); // IRQEN at offset 0xE0
 // Peripheral output bus mux
 wire [31:0]iodo = 
 	((ca[7:5]==3'b000)&(~ca[2]) ? {24'h0,uart_do} 	: 0 ) |
-	((ca[7:5]==3'b000)&( ca[2]) ? {27'h0,pwmirq,urxoverr,urxframeer,utxrdy,urxvalid} : 0 ) |
+	((ca[7:5]==3'b000)&( ca[2]) ? {25'h0,pwmirq,udirty,uctrlc,urxoverr,urxframeer,utxrdy,urxvalid} : 0 ) |
 	((ca[7:5]==3'b001) 			? {28'h0,gpin}		: 0 ) |
 	((ca[7:5]==3'b011) 			? tcount 			: 0 ) |
-	((ca[7:5]==3'b111) 			? {29'h0,irqen} 	: 0 );
+	((ca[7:5]==3'b111) 			? {28'h0,irqen} 	: 0 );
 
 /////////////////////////////
 // UART
@@ -247,6 +249,13 @@ UART_core #(.DIVIDER(DIVIDER)) uart0 (
 	.txd(txd), .rxd(rxd)
 );
 assign stopcpu = (urd & (~urxvalid)) | (uwrtx & (~utxrdy));
+
+// debug flags
+wire uctrlc=urxvalid & (uart_do==8'h03);
+reg udirty;
+wire udirtyclr=uartcs & ca[2] & mwe[0]; // write to PFLAGS clears udirty
+always @(posedge cclk) 
+  udirty<= uwrtx ? 1 : (udirtyclr ? 0 : udirty);
 
 //////////////////////////////////////////
 //  PWM
@@ -277,23 +286,24 @@ end
 //    Interrupt control
 
 // IRQ enable reg
-reg [2:0]irqen=0;
+reg [3:0]irqen=0;
 always @(posedge cclk or posedge reset) begin
 	if (reset) irqen<=0; else
-	if (irqcs & (~ca[4]) &mwe[0]) irqen<=cdo[2:0];
+	if (irqcs & (~ca[4]) &mwe[0]) irqen<=cdo[3:0];
 end
 
 // IRQ vectors
 reg [31:2]irqvect[0:3];
 always @(posedge cclk) if (irqcs & ca[4] & (mwe==4'b1111)) irqvect[ca[3:2]]<=cdo[31:2];
 
-// Enabled IRQs
-wire [2:0]irqpen={irqen[2]&pwmirq, irqen[1]&utxrdy, irqen[0]&urxvalid};	// pending IRQs
+// Pending IRQs
+wire [2:0]irqpen={	irqen[3] & usermode, irqen[2] & pwmirq,
+				  (irqen[1] & utxrdy) | (irqen[0] & urxvalid) };	// pending IRQs
 
 // Priority encoder
 wire [1:0]vecn = trap      ? 2'b00 : (	// ECALL, EBREAK: highest priority
-				 irqpen[0] ? 2'b01 : (	// UART RX
-				 irqpen[1] ? 2'b10 : 	// UART TX
+	 			 irqpen[2] ? 2'b01 : (	// Single Step
+				 irqpen[0] ? 2'b10 : 	// UART RX/TX
 				 			 2'b11 ));	// PWM
 assign ivector = irqvect[vecn];
 assign irq = (irqpen!=0)|trap;
@@ -425,6 +435,7 @@ module laRVa (
 		output [31:0]wdata,	// Data output
 		output [3:0]wstrb,	// Byte strobes for writes
 		input  [31:0]rdata,	// Data input
+		output usermode,	// 1: user mode, 0: machine (IRQ) mode
 		input  irq,			// Interrupt, active high
 		input  [31:2]ivector,// IRQ vector 
 		output trap			// Trap interrupt requested for ECALL...
@@ -735,6 +746,7 @@ end
 
 wire irqstart = (~mmode) & (q0|trap) ; // Single cycle pulse
 
+assign usermode = ~mmode;
 
 endmodule
 
