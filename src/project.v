@@ -82,6 +82,9 @@ parameter BAUD=115200;
 
 reg [31:0]brom[0:31];
 wire [31:0]bromo=brom[ca[6:2]];
+`ifdef SIMULATION
+initial $readmemh("brom.hex",brom);
+`else
 initial begin
 brom[ 0]=32'he00001b7; //          	lui		x3,0xE0000	// I/O area
 brom[ 1]=32'h04c00213; //          	li		x4,0x4c		// char 'L'
@@ -113,7 +116,7 @@ brom[25]=32'h01831313; //          	slli 	x6,x6,24
 brom[26]=32'h0062e2b3; //          	or		x5,x5,x6
 brom[27]=32'h00008067; //          	ret
 end
-
+`endif
 
 
 	
@@ -695,8 +698,8 @@ assign regsD  =
 //////////////////////////////////////////////////////
 // The 2 LSB bits of PC are always 00, and aren't implemented
 // PC points one instruction ahead of the one being executed (4 bytes)
-// Two register stack: PC[0]: normal mode (user)
-//                     PC[1]: interrupts (machine)
+// Two register stack: PCreg0: normal mode (user)
+//                     PCreg1: interrupts (machine)
 // Additional register PCci:  address of current instruction 
 
 reg  [31:2]PCreg0; reg  [31:2]PCreg1;	// The Two PCs
@@ -752,9 +755,13 @@ assign usermode = ~mmode;
 endmodule
 
 ///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 // JTAG port: J. Arias (2025)
 // 	
-//////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
+///////////////////////////////////////////////
 
 module JTAG_TAP (
 	input tck,
