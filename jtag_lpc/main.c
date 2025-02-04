@@ -208,7 +208,7 @@ void update_bsr()
 	EXIT1_TO_IDLE(); // Set pin values
 }
 
-// Emulated CLK pulse (durint INTEST)
+// Emulated CLK pulse (during INTEST)
 void clkpulse()
 {
 	shin[0]|=CLK; update_bsr();
@@ -337,10 +337,13 @@ init:
 	shin[0]=0;	// shift zeroes from TDI
 	_puts("Boundary Scan chain:\n--------------------\n    TDO\n");
 	for (i=0;i<MAXBSTAP/32;i++) {
-		shift_tdi(32,shin,shout);	
-		if (i==0) idcode=shout[0];
-		if (!shout[0]) break;
-		_printf("chip #%d > 0x%08x\n",i+1,shout[0]);
+		shift_tdi(32,shin,shout);
+		j=shout[0];	
+		if (j==0) break;
+		idcode=j;
+		_printf("chip #%d > 0x%08x ",i+1,idcode);
+		_printf("(manuf.: 0x%03x  part: 0x%04x  rev.: 0x%x)\n",
+			idcode&0xFFF, (idcode>>12)&0xFFFF, (idcode>>28) );
 	}
 	_puts("    TDI\n--------------------\n");
 	SHIFT_TO_IDLE();
@@ -349,9 +352,6 @@ init:
 		_delay_ms(1000);
 		goto init;
 	}
-	_printf("\nIDCODE: 0x%08x ",idcode);
-	_printf("(manuf.: 0x%03x  part: 0x%04x  rev.: 0x%x)\n",
-		idcode&0xFFF, (idcode>>12)&0xFFFF, (idcode>>28) );
 
 	// get IR LEN	
 	IDLE_TO_SHIFTIR();
@@ -371,7 +371,12 @@ init:
 		_putch('\n');
 	}
 
-	_delay_ms(500);
+	if (idcode!=0x00047FAB) {
+		_printf("\nOnly TinyTlaRVa chip supported. Sorry\n");
+		_delay_ms(1000);
+		goto init;
+	}
+	
 	set_ir(SAMPLE); // Sample/preload
 	
 	while(1) {
