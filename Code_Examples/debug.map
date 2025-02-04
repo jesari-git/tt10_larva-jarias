@@ -1,0 +1,120 @@
+Archive member included to satisfy reference by file (symbol)
+
+/usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+                              /tmp/ccU2LBk5.o (__udivsi3)
+
+Discarded input sections
+
+ .debug_line    0x0000000000000000      0x162 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ .debug_info    0x0000000000000000       0x26 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ .debug_abbrev  0x0000000000000000       0x14 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ .debug_aranges
+                0x0000000000000000       0x20 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ .debug_str     0x0000000000000000       0xaa /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+RONLY            0x0000000000000000 0x0000000000000020 xr
+RAM              0x000000002001dff0 0x0000000000002010 xrw
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+
+.text           0x000000002001dff0     0x18b7
+                0x000000002001dff0                . = ALIGN (0x4)
+ *(.boot)
+ *(.text)
+ .text          0x000000002001dff0       0x48 /tmp/ccPe43Ip.o
+                0x000000002001e02c                delay_loop
+ .text          0x000000002001e038     0x11a0 /tmp/ccU2LBk5.o
+                0x000000002001e038                debug_handler
+                0x000000002001e0d4                _putch
+                0x000000002001e5c8                _puts
+                0x000000002001e5fc                _printf
+                0x000000002001e638                _sprintf
+                0x000000002001e670                _getch
+                0x000000002001e688                _getsn
+                0x000000002001e728                rdhex
+                0x000000002001e770                hexdump
+                0x000000002001e834                dissasemble
+                0x000000002001ebc8                help
+                0x000000002001ebd4                singlestep
+                0x000000002001f164                loader
+                0x000000002001f1b8                load
+ .text          0x000000002001f1d8       0xb4 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+                0x000000002001f1d8                __divsi3
+                0x000000002001f1e0                __udivsi3
+                0x000000002001f228                __umodsi3
+                0x000000002001f25c                __modsi3
+ *(.text*)
+ .text.startup  0x000000002001f28c       0x38 /tmp/ccU2LBk5.o
+                0x000000002001f28c                main
+ *(.rodata)
+ .rodata        0x000000002001f2c4      0x120 /tmp/ccU2LBk5.o
+ *(.rodata*)
+ .rodata.str1.4
+                0x000000002001f3e4      0x4c3 /tmp/ccU2LBk5.o
+                                        0x4c7 (size before relaxing)
+ *(.srodata)
+ *(.srodata*)
+                0x000000002001f8a7                _etext = .
+                0x000000002001f8a7                _sidata = _etext
+
+.rela.dyn       0x000000002001f8a8        0x0
+ .rela.text     0x000000002001f8a8        0x0 /tmp/ccPe43Ip.o
+
+.data           0x000000002001f8a7        0x1
+                0x000000002001f8a8                . = ALIGN (0x4)
+ *fill*         0x000000002001f8a7        0x1 
+                0x000000002001f8a7                _sdata_values = LOADADDR (.data)
+                0x000000002001f8a8                _sdata = .
+                0x000000002001f8a8                _ram_start = .
+                0x000000002001f8a8                . = ALIGN (0x4)
+ *(.data)
+ .data          0x000000002001f8a8        0x0 /tmp/ccPe43Ip.o
+ .data          0x000000002001f8a8        0x0 /tmp/ccU2LBk5.o
+ .data          0x000000002001f8a8        0x0 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ *(.data*)
+ *(.sdata)
+ *(.sdata*)
+                0x000000002001f8a8                . = ALIGN (0x4)
+                0x000000002001f8a8                _edata = .
+
+.bss            0x000000002001f8a8       0x20
+                0x000000002001f8a8                . = ALIGN (0x4)
+                0x000000002001f8a8                _sbss = .
+ *(.bss)
+ .bss           0x000000002001f8a8        0x0 /tmp/ccPe43Ip.o
+ .bss           0x000000002001f8a8        0x0 /tmp/ccU2LBk5.o
+ .bss           0x000000002001f8a8        0x0 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ *(.bss*)
+ *(.sbss)
+ .sbss          0x000000002001f8a8       0x1d /tmp/ccU2LBk5.o
+ *(.sbss*)
+ *(COMMON)
+                0x000000002001f8c8                . = ALIGN (0x4)
+ *fill*         0x000000002001f8c5        0x3 
+                0x000000002001f8c8                _ebss = .
+
+.heap           0x000000002001f8c8        0x0
+                0x000000002001f8c8                . = ALIGN (0x4)
+                0x000000002001f8c8                _heap_start = .
+LOAD /tmp/ccPe43Ip.o
+LOAD /tmp/ccU2LBk5.o
+LOAD /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a
+OUTPUT(debug.elf elf32-littleriscv)
+
+.riscv.attributes
+                0x0000000000000000       0x20
+ .riscv.attributes
+                0x0000000000000000       0x1a /tmp/ccPe43Ip.o
+ .riscv.attributes
+                0x000000000000001a       0x20 /tmp/ccU2LBk5.o
+ .riscv.attributes
+                0x000000000000003a       0x1a /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+
+.comment        0x0000000000000000        0xf
+ .comment       0x0000000000000000        0xf /tmp/ccU2LBk5.o
+                                         0x10 (size before relaxing)

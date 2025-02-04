@@ -1,0 +1,37 @@
+
+bload.bin:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <start>:
+   0:	e00001b7          	lui	x3,0xe0000
+   4:	04c00213          	li	x4,76
+   8:	0001c283          	lbu	x5,0(x3) # e0000000 <_ebss+0xc0000000>
+   c:	fe521ee3          	bne	x4,x5,8 <start+0x8>
+  10:	00518023          	sb	x5,0(x3)
+  14:	030000ef          	jal	x1,44 <getw>
+  18:	00028393          	mv	x7,x5
+  1c:	028000ef          	jal	x1,44 <getw>
+  20:	00538433          	add	x8,x7,x5
+  24:	020000ef          	jal	x1,44 <getw>
+  28:	00028493          	mv	x9,x5
+  2c:	0100006f          	j	3c <start+0x3c>
+  30:	0001c283          	lbu	x5,0(x3)
+  34:	00538023          	sb	x5,0(x7)
+  38:	00138393          	addi	x7,x7,1
+  3c:	fe839ae3          	bne	x7,x8,30 <start+0x30>
+  40:	00048067          	jr	x9
+
+00000044 <getw>:
+  44:	0001c283          	lbu	x5,0(x3)
+  48:	0001c303          	lbu	x6,0(x3)
+  4c:	00831313          	slli	x6,x6,0x8
+  50:	0062e2b3          	or	x5,x5,x6
+  54:	0001c303          	lbu	x6,0(x3)
+  58:	01031313          	slli	x6,x6,0x10
+  5c:	0062e2b3          	or	x5,x5,x6
+  60:	0001c303          	lbu	x6,0(x3)
+  64:	01831313          	slli	x6,x6,0x18
+  68:	0062e2b3          	or	x5,x5,x6
+  6c:	00008067          	ret

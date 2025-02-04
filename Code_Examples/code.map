@@ -1,0 +1,123 @@
+Archive member included to satisfy reference by file (symbol)
+
+/usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+                              /tmp/ccdr17KP.o (__divsi3)
+
+Discarded input sections
+
+ .debug_line    0x0000000000000000      0x162 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ .debug_info    0x0000000000000000       0x26 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ .debug_abbrev  0x0000000000000000       0x14 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ .debug_aranges
+                0x0000000000000000       0x20 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ .debug_str     0x0000000000000000       0xaa /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+RONLY            0x0000000000000000 0x0000000000000020 xr
+RAM              0x000000001ffffff0 0x0000000000020010 xrw
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+
+.text           0x000000001ffffff0      0xd90
+                0x000000001ffffff0                . = ALIGN (0x4)
+ *(.boot)
+ *(.text)
+ .text          0x000000001ffffff0       0x48 /tmp/ccKLZAKh.o
+                0x000000002000002c                delay_loop
+ .text          0x0000000020000038      0x9a0 /tmp/ccdr17KP.o
+                0x0000000020000038                irq3_handler
+                0x00000000200000c0                irq2_handler
+                0x000000002000016c                _putch
+                0x0000000020000660                _puts
+                0x0000000020000694                _printf
+                0x00000000200006d0                _sprintf
+                0x0000000020000708                _getch
+                0x0000000020000758                haschar
+                0x0000000020000774                getMEPC
+                0x0000000020000780                irq0_handler
+                0x0000000020000810                _memcpy
+                0x0000000020000838                simputch
+                0x0000000020000860                sieve
+ .text          0x00000000200009d8       0xb4 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+                0x00000000200009d8                __divsi3
+                0x00000000200009e0                __udivsi3
+                0x0000000020000a28                __umodsi3
+                0x0000000020000a5c                __modsi3
+ *(.text*)
+ .text.startup  0x0000000020000a8c       0xe8 /tmp/ccdr17KP.o
+                0x0000000020000a8c                main
+ *(.rodata)
+ *(.rodata*)
+ .rodata.str1.4
+                0x0000000020000b74      0x20c /tmp/ccdr17KP.o
+ *(.srodata)
+ *(.srodata*)
+                0x0000000020000d80                _etext = .
+                0x0000000020000d80                _sidata = _etext
+
+.rela.dyn       0x0000000020000d80        0x0
+ .rela.text     0x0000000020000d80        0x0 /tmp/ccKLZAKh.o
+
+.data           0x0000000020000d80        0x8
+                0x0000000020000d80                . = ALIGN (0x4)
+                0x0000000020000d80                _sdata_values = LOADADDR (.data)
+                0x0000000020000d80                _sdata = .
+                0x0000000020000d80                _ram_start = .
+                0x0000000020000d80                . = ALIGN (0x4)
+ *(.data)
+ .data          0x0000000020000d80        0x0 /tmp/ccKLZAKh.o
+ .data          0x0000000020000d80        0x0 /tmp/ccdr17KP.o
+ .data          0x0000000020000d80        0x0 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ *(.data*)
+ *(.sdata)
+ .sdata         0x0000000020000d80        0x5 /tmp/ccdr17KP.o
+ *(.sdata*)
+                0x0000000020000d88                . = ALIGN (0x4)
+ *fill*         0x0000000020000d85        0x3 
+                0x0000000020000d88                _edata = .
+
+.bss            0x0000000020000d88      0x128
+                0x0000000020000d88                . = ALIGN (0x4)
+                0x0000000020000d88                _sbss = .
+ *(.bss)
+ .bss           0x0000000020000d88        0x0 /tmp/ccKLZAKh.o
+ .bss           0x0000000020000d88      0x120 /tmp/ccdr17KP.o
+                0x0000000020000d88                udat
+                0x0000000020000da8                array
+ .bss           0x0000000020000ea8        0x0 /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+ *(.bss*)
+ *(.sbss)
+ .sbss          0x0000000020000ea8        0x6 /tmp/ccdr17KP.o
+                0x0000000020000ea8                buf
+                0x0000000020000eac                wrix
+                0x0000000020000ead                rdix
+ *(.sbss*)
+ *(COMMON)
+                0x0000000020000eb0                . = ALIGN (0x4)
+ *fill*         0x0000000020000eae        0x2 
+                0x0000000020000eb0                _ebss = .
+
+.heap           0x0000000020000eb0        0x0
+                0x0000000020000eb0                . = ALIGN (0x4)
+                0x0000000020000eb0                _heap_start = .
+LOAD /tmp/ccKLZAKh.o
+LOAD /tmp/ccdr17KP.o
+LOAD /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a
+OUTPUT(code.elf elf32-littleriscv)
+
+.riscv.attributes
+                0x0000000000000000       0x20
+ .riscv.attributes
+                0x0000000000000000       0x1a /tmp/ccKLZAKh.o
+ .riscv.attributes
+                0x000000000000001a       0x20 /tmp/ccdr17KP.o
+ .riscv.attributes
+                0x000000000000003a       0x1a /usr/lib/gcc/riscv64-unknown-elf/10.2.0/rv32e/ilp32e/libgcc.a(div.o)
+
+.comment        0x0000000000000000        0xf
+ .comment       0x0000000000000000        0xf /tmp/ccdr17KP.o
+                                         0x10 (size before relaxing)
