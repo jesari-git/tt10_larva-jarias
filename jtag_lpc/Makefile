@@ -8,7 +8,7 @@ AS      = $(TOOL)-as
 CP      = $(TOOL)-objcopy
 OD		= $(TOOL)-objdump
 
-BT2=~/UVA/Cosas_Nuestras/bootloader/bt2 
+BT2=~/UVA/Cosas_Nuestras/bootloader/bt2 -sb 115200
 ISP=~/UVA/Cosas_Nuestras/lpc21isp-master/lpc21isp
 
 # compilado en modo thumb

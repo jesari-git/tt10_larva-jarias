@@ -18,15 +18,15 @@
 #define TDO	(1<<7)
 
 // Portability macros:
-#define TCK_H()	(IO0SET=TCK)
-#define TCK_L()	(IO0CLR=TCK)
-#define TMS_H()	(IO0SET=TMS)
-#define TMS_L()	(IO0CLR=TMS)
-#define TDI_H()	(IO0SET=TDI)
-#define TDI_L()	(IO0CLR=TDI)
+#define TCK_H()	(FIO0SET=TCK)
+#define TCK_L()	(FIO0CLR=TCK)
+#define TMS_H()	(FIO0SET=TMS)
+#define TMS_L()	(FIO0CLR=TMS)
+#define TDI_H()	(FIO0SET=TDI)
+#define TDI_L()	(FIO0CLR=TDI)
 
-#define GET_TDO() (IO0PIN&TDO)
-#define DELAY_T2() //(_delay_us(5)) // Half cycle delay for TCK
+#define GET_TDO() (FIO0PIN&TDO)
+#define DELAY_T2() //(_delay_ns(100)) // Half cycle delay for TCK
 
 // Change state (max 32 TCK pulses, TMS values in val)
 void shift_tms(int ncy, uint32_t val)
@@ -92,17 +92,38 @@ void shift_tdi_exit1(int ncy, uint32_t *pin, uint32_t *pout)
 }
 
 // Some macros for state machine changes:
-#define GO_RESET() shift_tms(5,0b11111)
-#define GO_IDLE()  shift_tms(6,0b011111)
-#define IDLE_TO_SHIFTIR() shift_tms(4,0b0011) 
-#define IDLE_TO_SHIFTDR() shift_tms(3,0b001) 
-#define SHIFT_TO_IDLE() shift_tms(3,0b011) 
-#define EXIT1_TO_IDLE() shift_tms(2,0b01) 
+#define GO_RESET() 			shift_tms(5,0b11111)
+#define GO_IDLE()  			shift_tms(6,0b011111)
+#define IDLE_TO_SHIFTIR() 	shift_tms(4,0b0011) 
+#define IDLE_TO_SHIFTDR()	shift_tms(3,0b001) 
+#define SHIFT_TO_IDLE() 	shift_tms(3,0b011) 
+#define EXIT1_TO_IDLE() 	shift_tms(2,0b01) 
 
 // Storage for input & output shift registers
-#define MAXBSTAP	(1024)	// max. number of bits for any shift register
+#define MAXDRBITS	(1024)	// max. number of bits for any shift register chain
+#define MAXCHIPS	(10)	// max. number of chips in the chain
 uint32_t irlen,drlen;		// measured register lenghts
-uint32_t shin[MAXBSTAP/32],shout[MAXBSTAP/32]; //
+uint32_t shin[MAXDRBITS/32],shout[MAXDRBITS/32]; //
+#define MAXIRBITS	(MAXCHIPS*8)	// max. number of bits for IR chain
+uint32_t shir[(MAXIRBITS+31)/32];
+uint8_t chipirpos[MAXCHIPS],chipirlen[MAXCHIPS];
+uint8_t cchip;		// current chip for test
+
+// BIT write 
+void bitwr(uint32_t *pbuf, int bit, int val)
+{
+	uint32_t msk=1<<(bit&31);
+	
+	pbuf=&pbuf[bit>>5];
+	if (val) *pbuf |= msk;
+	else     *pbuf &= ~msk;
+}
+
+// Bit read
+uint32_t bitrd(uint32_t *pbuf, int bit)
+{
+	return (pbuf[bit>>5]&(1<<(bit&31))) ? 1 : 0;
+}
 
 // Measure actual number of bits in register (IR or DR)
 int get_reg_len()
@@ -111,25 +132,46 @@ int get_reg_len()
 	
 	// fill with 0s
 	shin[0]=0;
-	for (i=0;i<MAXBSTAP/32; i++) shift_tdi(32,shin,shout);
-	// wait for 1
+	for (i=0;i<MAXDRBITS/32; i++) shift_tdi(32,shin,shout);
+	// fill with 1s and wait for 1 at TDO
 	shin[0]=1;
-	for (i=0;i<MAXBSTAP;i++) {
+	for (i=0;i<MAXDRBITS;i++) {
 		shift_tdi(1,shin,shout);
 		if (shout[0]) break;
 	}
 	return i;
 }
 
-// Set IR value (irlen must be valid)
-void set_ir(int val)
+uint32_t bypassir[MAXIRBITS/32]; // Bypass values for all chips in the chain
+
+// Set IR value (irlen, chipirpos[], chipirlen[], and bypassir[], must be valid)
+
+void set_ir(int chip, int val)
 {
-	uint32_t i,j;
+	int i;
+	for (i=0;i<MAXIRBITS/32;i++) shir[i]=bypassir[i]; // copy bypassir to shir
+	for (i=chipirpos[chip]; i<chipirpos[chip]+chipirlen[chip]; i++) { 
+		bitwr(shir,i,val&1); val>>=1;	// change bits for the chip
+	} 
 	IDLE_TO_SHIFTIR();
-	i=val;
-	shift_tdi_exit1(irlen, &i, &j);
+	shift_tdi_exit1(irlen, shir, shout);
 	EXIT1_TO_IDLE();
 }
+
+// Capture and Update DR, skipping bypassed chips
+// (cchip and drlen must have valid values)
+void update_bsr()
+{
+	int i;
+	IDLE_TO_SHIFTDR(); 
+	for (i=0;i<cchip;i++) {	// Skip bypass bits on LSBs
+		DELAY_T2();	TCK_H();
+		DELAY_T2();	TCK_L();
+	}
+	shift_tdi_exit1(drlen-cchip,shin,shout);
+	EXIT1_TO_IDLE(); // Set pin values
+}
+
 
 // Print shift register as binary data
 void prtbin(int nbits, uint32_t *pdat)
@@ -144,8 +186,17 @@ void prtbin(int nbits, uint32_t *pdat)
 		nbits--;
 	}
 }
+// print n dashes "----"
+void prline(int n)
+{
+	while(n) {_putch('-'); n--;}
+	_putch('\n');
+}
 
-
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+// TinyTlaRVA stuff
+///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
 // BSR bits for TinyTlaRVA
 #define RESB	(1)
@@ -200,14 +251,6 @@ void uart_emulator(int rx)
 	}
 }
 
-// Capture and Update DR
-void update_bsr()
-{
-	IDLE_TO_SHIFTDR(); 
-	shift_tdi_exit1(drlen,shin,shout);
-	EXIT1_TO_IDLE(); // Set pin values
-}
-
 // Emulated CLK pulse (during INTEST)
 void clkpulse()
 {
@@ -216,6 +259,7 @@ void clkpulse()
 }
 
 
+//////////////////////////////////////////////////////////////////
 // Internal test #1: Send serial data to bootloader:
 //    address: 0			(doesn't matter)
 //    size:    0		  	(no code upload)
@@ -228,10 +272,10 @@ void intest1()
 	static const uint8_t header[13]={'L', 0,0,0,0, 0,0,0,0, 0,0,0,0x20};
 
 	_printf("\nINTEST1. Executing bootloader with dummy header and jump to 0x20000000\n");
-	set_ir(PRELOAD);
+	set_ir(cchip,PRELOAD);
 	shin[0]=XWEB | XOEB | TXD | RXD;	// Preload values (RSTB active)
-	update_bsr(); update_bsr();
-	set_ir(INTEST);
+	update_bsr(); //update_bsr();
+	set_ir(cchip,INTEST);
 
 	for (k=0;k<20;k++) clkpulse();
 	shin[0]|=RESB;
@@ -242,7 +286,6 @@ void intest1()
 		for (j=0;j<10;j++) {
 			if (d&1) shin[0]|=RXD; else shin[0]&=~RXD;
 			d>>=1;
-			update_bsr();
 			for (k=0;k<TBIT;k++) {clkpulse(); uart_emulator(shout[0]&TXD);}
 		}
 	}
@@ -314,90 +357,132 @@ void intest2()
 }
 
 ////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+//    Chip database (minimal info)
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+const struct {
+	uint32_t	idcode;		// manuf. ID
+	uint16_t	irlen;		// IR size in bits
+	uint16_t	bypass;		// IR instruction for Bypass
+} chipdb[] ={
+	0x00047FAB, 3, 0x7,		// TTLaRVa
+	0xCABECEAD, 5, 0x1F,	// test value
+	0x0DEFECAD, 3, 0x7,		// test value
+	0xBEBEDCAF, 4, 0xF,		// test value
+	0,0,0					// end of list
+};
+
+
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
 //    MAIN function (never returns)
+////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////
 
 void main()
 {
-	unsigned int idcode,i,j,k;
+	unsigned int idcode[MAXDRBITS/32],nchips,i,j,k,l,bsl;
 
 // GPIO init (LPC2103 specific)
-	IO0DIR|= TCK | TMS | TDI;	// outputs
-	IO0CLR = TCK | TMS | TDI;	// start as 0
+	SCS=1;						// Enable fast-GPIO
+	FIO0DIR|= TCK | TMS | TDI;	// outputs
+	FIO0CLR = TCK | TMS | TDI;	// start as 0
 
 // JTAG code
 //  Assumes: 
-//    - Only 1 device in the chain
-//    - TinyTlaRVa chip (for internal test)
+//    - Known devices in the chain
+//    - TinyTlaRVa chip present (for internal tests)
 init:
-	GO_IDLE();	// reset & idle
+	GO_IDLE();	// reset & idle => DR = Device ID chain
 
+	cchip=0xff;	// current chip starts as invalid
+	
 	// read IDCODEs
 	IDLE_TO_SHIFTDR();
 	shin[0]=0;	// shift zeroes from TDI
-	_puts("Boundary Scan chain:\n--------------------\n    TDO\n");
-	for (i=0;i<MAXBSTAP/32;i++) {
+	_puts("\nBoundary Scan chain:\n"); prline(78); _puts("    TDO\n");
+	for (nchips=k=0;nchips<MAXCHIPS;nchips++) {
 		shift_tdi(32,shin,shout);
 		j=shout[0];	
 		if (j==0) break;
-		idcode=j;
-		_printf("chip #%d > 0x%08x ",i+1,idcode);
-		_printf("(manuf.: 0x%03x  part: 0x%04x  rev.: 0x%x)\n",
-			idcode&0xFFF, (idcode>>12)&0xFFFF, (idcode>>28) );
+		idcode[nchips]=j;
+		_printf("chip #%d > 0x%08x ",nchips,j);
+		_printf("(manuf.: 0x%03x  part: 0x%04x  rev.: 0x%x)",
+			j&0xFFF, (j>>12)&0xFFFF, (j>>28) );
+		for (i=0;chipdb[i].idcode;i++) {
+			if (chipdb[i].idcode==j) {
+				if (j==0x00047FAB) { cchip=nchips; _puts(" < TTlaRVa");}
+				chipirpos[nchips]=k;
+				chipirlen[nchips]=chipdb[i].irlen;
+				for (l=0;l<chipdb[i].irlen; l++) bitwr(bypassir,k+l,chipdb[i].bypass&(1<<l));
+				k+=chipdb[i].irlen;
+				break;
+			}
+		}
+		if (chipdb[i].idcode==0) {
+			_puts(" *** Unknown part");
+			chipirpos[nchips]=k;
+			chipirlen[nchips]=4;
+			for (l=0;l<4; l++) bitwr(bypassir,k+l,1);
+			k+=4;
+		}
+		_putch('\n');
+		
 	}
-	_puts("    TDI\n--------------------\n");
+	_puts("    TDI\n"); prline(78);
 	SHIFT_TO_IDLE();
-	if (i>1) {
-		_printf("\nOnly one chip in chain supported. Sorry\n");
+
+	if (cchip==0xff) {
+		_puts("\nNo TinyTlarVa found\n");
 		_delay_ms(1000);
 		goto init;
-	}
+	} else _printf("Testing chip #%d (TinyTlaRVa)\n",cchip);
 
 	// get IR LEN	
 	IDLE_TO_SHIFTIR();
 	irlen=get_reg_len();
-	_printf("IR.len=%d\n",irlen);
 	SHIFT_TO_IDLE();
-	
-	// get DR lengths for each IR value
-	for (i=k=drlen=0;i<(1<<irlen); i++) {
-		set_ir(i);
-		IDLE_TO_SHIFTDR();
-		_printf("IR=0x%x  DR.len=%d",i,j=get_reg_len());
-		SHIFT_TO_IDLE();
-		if (j==32 && k==0) {k=1; _puts(" <DR: DIR");}
-		else if (j==1) _puts("  <DR: Bypass");
-		else if (!drlen) {drlen=j; _puts(" <DR: BSR");}
-		_putch('\n');
-	}
+	_printf("IRchain.len=%d\n",irlen);
 
-	if (idcode!=0x00047FAB) {
-		_printf("\nOnly TinyTlaRVa chip supported. Sorry\n");
-		_delay_ms(1000);
-		goto init;
-	}
+	// get BSR+bypass length
+	set_ir(cchip,SAMPLE); // Select BSR, default to Sample/preload
+	IDLE_TO_SHIFTDR();
+	drlen=get_reg_len();
+	SHIFT_TO_IDLE();
+	_printf("DRchain.len=%d (BSR + %d bypass)\n",drlen,nchips-1); 
 	
-	set_ir(SAMPLE); // Sample/preload
-	
+	prline(32); _puts(
+	"q  start again\n"
+	"d  check DR lengths\n"
+	"s  enter SAMPLE/preload\n"
+	"x  enter EXTEST\n"
+	"i  enter INTEST\n"
+	"r  toggle RESET_n\n"
+	"c  toggle CLK\n"
+	"1  intest #1 (TTlaRVa)\n"
+	"2  intest #2 (TTlaRVa)\n"
+	); prline(32);
+
 	while(1) {
-		_printf("> "); i=_getch();
+		_puts("> "); i=_getch();
 		switch(i){
 		case 'q': goto init;
-		case 's': set_ir(SAMPLE); _printf("SAMPLE/PRELOAD\n"); continue;
-		case 'x': // esternal test
+		case 's': set_ir(cchip,SAMPLE); _printf("SAMPLE/PRELOAD\n"); continue;
+		case 'x': // external test
 			update_bsr();		// Sample current values
-			for (i=0;i<MAXBSTAP/32; i++) shin[i]=shout[i]; // and copy them to shin
+			for (i=0;i<MAXDRBITS/32; i++) shin[i]=shout[i]; // and copy them to shin
 			shin[0]|=RESB; 		// Disable Reset, just in case...
 			update_bsr();
-			set_ir(EXTEST); 	// Enter EXTEST mode
+			set_ir(cchip,EXTEST); 	// Enter EXTEST mode
 			_printf("EXTEST\n> "); 
 			break;
 		case 'i': 	// Internal test
 			update_bsr();		// Sample current values
-			for (i=0;i<MAXBSTAP/32; i++) shin[i]=shout[i]; // and copy them to shin
+			for (i=0;i<MAXDRBITS/32; i++) shin[i]=shout[i]; // and copy them to shin
 			shin[0]|=RESB; 		// Disable Reset, just in case...
 			update_bsr();
-			set_ir(INTEST);  	// Enter INTEST mode
+			set_ir(cchip,INTEST);  	// Enter INTEST mode
 			_printf("INTEST\n> ");  
 			break;
 		
@@ -405,12 +490,30 @@ init:
 		case 'c': shin[0]^=CLK; break;	// Togle CLK (during INTEST/EXTEST)
 		
 		case '1': intest1(); continue;	// Reset and skip bootloader
-		case '2': intest2(); continue;	// Code execution throung JTAG
+		case '2': intest2(); continue;	// Code execution through JTAG
+		case 'd':
+			// get DR lengths for each IR value
+			for (l=0;l<nchips;l++) {
+				_printf("--------\nchip #%d\n",l);
+				for (i=k=bsl=0;i<(1<<chipirlen[l]); i++) {
+					set_ir(l,i);
+					IDLE_TO_SHIFTDR();
+					_printf("IR=0x%x  DR.len=%d",i,j=get_reg_len());
+					SHIFT_TO_IDLE();
+					if (j==31+nchips && k==0) {k=1; _puts(" <DR: DIR");}
+					else if (j==nchips) _puts("  <DR: Bypass");
+					else if (!bsl) {bsl=j; _puts(" <DR: BSR");}
+					_putch('\n');
+				}
+			}
+			continue;
+		
+		
 		}
 		
 		update_bsr();	// Set pin values
 		update_bsr();	// and sample new values
-		prtbin(drlen,shout); _putch('\n');
+		prtbin(drlen-nchips+1,shout); _putch('\n');
 
 	}
 

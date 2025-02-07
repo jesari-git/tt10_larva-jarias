@@ -440,4 +440,12 @@
 /* Syscon Miscellaneous */
 #define SCS            (*((volatile unsigned long *) 0xE01FC1A0))
 
+
+/* Fast GPIO */
+#define FIO0DIR        (*((volatile unsigned long *) 0x3FFFC000))
+#define FIO0MASK       (*((volatile unsigned long *) 0x3FFFC010))
+#define FIO0PIN        (*((volatile unsigned long *) 0x3FFFC014))
+#define FIO0SET        (*((volatile unsigned long *) 0x3FFFC018))
+#define FIO0CLR        (*((volatile unsigned long *) 0x3FFFC01C))
+
 #endif  // __LPC21xx_H
