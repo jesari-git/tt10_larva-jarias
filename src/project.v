@@ -603,15 +603,15 @@ assign sh_out = left_sh ?
   /////////////////////////////////////////////////
   // ALU output select
   /////////////////////////////////////////////////
-
+wire seladd = (funct3==0)|oplui|opauipc;
 wire [31:0] aluOut =
-     (((funct3==0)|oplui|opauipc) ? aluAdder[31:0]  : 32'b0) |
-     ((funct3==2)                 ? {31'b0, LT}     : 32'b0) |
-     ((funct3==3)                 ? {31'b0, LTU}    : 32'b0) |
-     ((funct3==4)                 ? aluIn1 ^ aluIn2 : 32'b0) |
-     ((funct3==6)                 ? aluIn1 | aluIn2 : 32'b0) |
-     ((funct3==7)                 ? aluIn1 & aluIn2 : 32'b0) |
-     (((funct3==1)|(funct3==5))   ? sh_out          : 32'b0) ;
+     ( seladd                               ? aluAdder[31:0]  : 32'b0) |
+     ((funct3==2)&(~seladd)                 ? {31'b0, LT}     : 32'b0) |
+     ((funct3==3)&(~seladd)                 ? {31'b0, LTU}    : 32'b0) |
+     ((funct3==4)&(~seladd)                 ? aluIn1 ^ aluIn2 : 32'b0) |
+     ((funct3==6)&(~seladd)                 ? aluIn1 | aluIn2 : 32'b0) |
+     ((funct3==7)&(~seladd)                 ? aluIn1 & aluIn2 : 32'b0) |
+     (((funct3==1)|(funct3==5))&(~seladd)   ? sh_out          : 32'b0) ;
 
   //////////////////////////////////////////
   // The predicate for conditional branches.
